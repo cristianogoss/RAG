@@ -1,0 +1,44 @@
+import os
+import chromadb
+from groq import Groq
+
+
+# Configurar a chave de API do Groq
+os.environ["GROQ_API_KEY"] = "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"
+
+# Inicializar o cliente do ChromaDB
+chroma_client = chromadb.PersistentClient(path="db")
+collection = chroma_client.get_or_create_collection(name="artigo")
+
+
+prompt = """
+Você é um assistente do Restaurante  Erik Sabores.
+Use o seguinte contexto para responder a questão, não use nenhuma informação adicional, se nao houver informacao no contexto, responda: Desculpe mas não consigo ajudar.
+Sempre termine a resposta com: Foi um prazer lhe atender, não deixe de provar nossos sabores.
+"""
+
+# Função para consultar o ChromaDB
+def consultar_chromadb(questao):
+    results = collection.query(query_texts=questao, n_results=2)
+    conteudo = results["documents"][0][0] + results["documents"][0][1]
+    return conteudo
+
+# Função para gerar resposta usando Groq
+def gerar_resposta_groq(prompt, conteudo, questao):
+    client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "system", "content": conteudo},
+            {"role": "user", "content": questao},
+        ],
+        model="llama-3.1-70b-versatile",
+    )
+    return chat_completion.choices[0].message.content
+
+questao = input("Em que posso lhe ajudar? ")
+conteudo = consultar_chromadb(questao)
+resposta = gerar_resposta_groq(prompt, conteudo, questao)
+
+print("Resposta do assistente:")
+print(resposta)
